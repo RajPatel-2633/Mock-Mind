@@ -150,19 +150,98 @@ const submitAnswer = asyncHandler(async(req,res)=>{
 });
 
 const generateReport = asyncHandler(async(req,res)=>{
+     const {id} = req.params;
 
+     const interview = await Interview.findById(id);
+     if(!interview){
+        throw new NotFoundError("Interview Not Found");
+     }
+     const questions = await Question.find({
+        interview:id
+     });
+
+     if(questions.length===0){
+        throw new NotFoundError("Could not fetch questions");
+     }
+
+     const history = questions.map(q=>({
+        question: q.question,
+        answer: q.answer,
+        evaluation: q.feedback,
+        score: q.score
+     }));
+
+     const aiMicroservice = axios.create({
+        baseURL:process.env.AI_MICROSERVICE_URL,
+    });
+
+    const {data} = await aiMicroservice.post("/report",{
+        session_id:id,
+        history
+    });
+
+    interview.report = data.report;
+
+    interview.status = "completed";
+    
+    interview.completedAt = new Date();
+
+    await interview.save();
+
+    return res.status(200).json(new ApiResponse(200,null,"Report Generated Successfully"));
 });
 
 const getInterviews =  asyncHandler(async(req,res)=>{
+    const id = req.user.id;
+    const interviews = await Interview.find({
+        user:id
+    }).select(
+        "techStack role difficulty overallScore status createdAt"
+    ).sort({
+        createdAt:-1
+    });
 
+    return res.status(200).json(new ApiResponse(200,interviews,"Interviews Fetched Successfully"));
 });
 
-const getInterviewById = asyncHandler(async(req,res)=>{
 
+const getInterviewById = asyncHandler(async(req,res)=>{
+    const {id} = req.params;
+    const interview = await Interview.findById(id);
+    if(!interview){
+        throw new NotFoundError("Interview Not Found");
+    }
+
+    const questions = await Question.find({
+        interview:id,
+        user:req.user.id
+    });
+
+    if(questions.length===0){
+        throw new NotFoundError("Questions Not Found");
+    }
+
+    return res.status(200).json(new ApiResponse(200,{
+        interview,
+        questions
+    },"Interviews and Questions Fetched Successfully"))
 });
 
 const deleteInterview = asyncHandler(async(req,res)=>{
+    const {id} = req.params;
+    const interview = await Interview.findOne({
+        _id:id,
+        user:req.user.id
+    });
 
+    if(!interview){
+        throw new  NotFoundError("Could not Find Interviews");
+    }
+    await Interview.findByIdAndDelete(id);
+    await Question.deleteMany({
+        interview:id
+    });
+    return res.status(200).json(new ApiResponse(200,null,"Deleted Successfully"));
 });
 
 
