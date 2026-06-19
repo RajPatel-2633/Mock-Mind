@@ -1,9 +1,9 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
 from typing import List,Optional
 from fastapi.middleware.cors import CORSMiddleware 
 
-from graph import question_graph,answer_graph,report_graph
+from graph import interview_graph
 
 app = FastAPI()
 
@@ -17,30 +17,40 @@ app.add_middleware(
 )
 
 class StartInterviewRequest(BaseModel):
-    session_id:str
-    tech_stack:str
-    difficulty:str
-    experience:str
+    session_id:str=""
+    tech_stack:str=""
+    difficulty:str=""
+    experience:str=""
+    asked_questions:List[str]=Field(default_factory=list)
+    current_question:int=0
+    total_questions:int=5
 
 
 class SubmitAnswerRequest(BaseModel):
-    session_id:str
-    tech_stack:str
-    experience:str
-    question:str
-    answer:str
-    difficulty:str
-    history:list=[]
+    session_id:str=""
+    tech_stack:str=""
+    experience:str=""
+    question:str=""
+    answer:str=""
+    difficulty:str="medium"
+    history:list=Field(default_factory=list)
     retrieved_context:str=""
     score:int=0
     feedback:str=""
     asked_questions:List[str]=[]
+    current_question:int
+    total_questions:int
     report:str=""
 
 
 class ReportRequest(BaseModel):
-    session_id:str
-    history:list
+    session_id:str=""
+    history:list=[]
+    tech_stack:str=""
+    difficulty:str="medium"
+    experience:str=""
+    current_question:int=0
+    total_questions:int=0
 
 
 def config(session_id):
@@ -64,23 +74,24 @@ def start(data:StartInterviewRequest):
     session_id = request.pop("session_id")
     state={
         **request,
+        "mode":"question",
         "question":"",
         "answer":"",
         "retrieved_context":"",
         "score":0,
         "feedback":"",
         "history":[],
-        "report":"" ,
-        "asked_questions":[]          
+        "report":"",
+        "next_action":""
     }
-    result = question_graph.invoke(
+    result = interview_graph.invoke(
         state,
         config(data.session_id)
     )
 
     return {
-        "question":result["question"],
-        "difficulty":result["difficulty"]
+        "question":result.get("question"),
+        "difficulty":result.get("difficulty")
     }
 
 
@@ -88,25 +99,45 @@ def start(data:StartInterviewRequest):
 def submit(data:SubmitAnswerRequest):
     request = data.model_dump()
     session_id = request.pop("session_id")
+
+    state = {
+        **request,
+        "mode":"answer"
+    }
     
-    result =  answer_graph.invoke(
-        data,
-        config(data.session_id)
+    result =  interview_graph.invoke(
+        state,
+        config(session_id)
     )
 
     return {
-        "feedback":result["feedback"],
-        "difficulty":result["difficulty"]
+        "score":result.get("score"),
+        "feedback":result.get("feedback"),
+        "difficulty":result.get("difficulty"),
+        "question":result.get("question"),
+        "next_action":result.get("next_action")
         }
 
 @app.post("/report")
 def report(data:ReportRequest):
     request = data.model_dump()
     session_id = request.pop("session_id")
+
+    state = {
+        **request,
+        "mode":"report",
+        "question":"",
+        "answer":"",
+        "retrieved_context":"",
+        "score":0,
+        "feedback":"",
+        "asked_questions":[],
+        "next_action":""
+    }
     
-    result =  report_graph.invoke(
-        request,
-        config(data.session_id)
+    result =  interview_graph.invoke(
+        state,
+        config(session_id)
     )
     return {
         "report":result["report"]
