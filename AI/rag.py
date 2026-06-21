@@ -9,7 +9,7 @@ embedding_model = HuggingFaceEmbeddings(
 )
 
 def _initialize_db():
-    persist_dir = "./chroma_data4"
+    persist_dir = "./chroma_data"
     if os.path.exists(persist_dir):
         return Chroma(
             collection_name="interview_questions",

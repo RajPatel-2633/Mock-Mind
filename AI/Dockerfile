@@ -12,9 +12,8 @@ WORKDIR /code
 COPY --chown=user:user ./requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-RUN mkdir -p /code/.cache && chown -R user:user /code/.cache
+RUN mkdir -p /code/.cache /code/chroma_data && chown -R user:user /code
 ENV HF_HOME=/code/.cache
-
 
 COPY --chown=user:user . /code
 
