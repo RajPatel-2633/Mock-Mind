@@ -62,13 +62,13 @@ def config(session_id):
 
 
 @app.post("/")
-def health():
+async def health():
     return {
         "status":"AI service running"
     }
 
 @app.post("/start-interview")
-def start(data:StartInterviewRequest):
+async def start(data:StartInterviewRequest):
     request = data.model_dump()
 
     session_id = request.pop("session_id")
@@ -84,9 +84,9 @@ def start(data:StartInterviewRequest):
         "report":"",
         "next_action":""
     }
-    result = interview_graph.invoke(
+    result = await interview_graph.ainvoke(
         state,
-        config(data.session_id)
+        config(session_id)
     )
 
     return {
@@ -96,7 +96,7 @@ def start(data:StartInterviewRequest):
 
 
 @app.post("/submit-answer")
-def submit(data:SubmitAnswerRequest):
+async def submit(data:SubmitAnswerRequest):
     request = data.model_dump()
     session_id = request.pop("session_id")
 
@@ -105,7 +105,7 @@ def submit(data:SubmitAnswerRequest):
         "mode":"answer"
     }
     
-    result =  interview_graph.invoke(
+    result = await interview_graph.ainvoke(
         state,
         config(session_id)
     )
@@ -119,7 +119,7 @@ def submit(data:SubmitAnswerRequest):
         }
 
 @app.post("/report")
-def report(data:ReportRequest):
+async def report(data:ReportRequest):
     request = data.model_dump()
     session_id = request.pop("session_id")
 
@@ -135,7 +135,7 @@ def report(data:ReportRequest):
         "next_action":""
     }
     
-    result =  interview_graph.invoke(
+    result = await interview_graph.ainvoke(
         state,
         config(session_id)
     )

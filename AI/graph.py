@@ -1,12 +1,21 @@
-from typing import TypedDict, List
+from typing import TypedDict, List, Annotated
+import operator
 from langgraph.graph import START,END,StateGraph
 from langgraph.checkpoint.memory import MemorySaver
-from llm import llm
+from llm import llm, json_llm
 from rag import get_retriever
 import re
 import json
 
-
+def clean_json(content: str) -> str:
+    content = content.strip()
+    if content.startswith("```json"):
+        content = content[7:]
+    elif content.startswith("```"):
+        content = content[3:]
+    if content.endswith("```"):
+        content = content[:-3]
+    return content.strip()
 
 class InterviewState(TypedDict):
     tech_stack:str
@@ -17,9 +26,9 @@ class InterviewState(TypedDict):
     retrieved_context:str
     score:int
     feedback:str
-    history:List[dict]
+    history:Annotated[List[dict], operator.add]
     report:str
-    asked_questions:List[str]
+    asked_questions:Annotated[List[str], operator.add]
     current_question: int
     total_questions: int
     next_action: str
@@ -27,7 +36,7 @@ class InterviewState(TypedDict):
 
 
 
-def retrieve_agent(state):
+async def retrieve_agent(state):
 
     retriever = get_retriever(
         state["tech_stack"],
@@ -40,7 +49,7 @@ LEVEL{state['difficulty']}
 Interview Questions
 """
     
-    docs = retriever.invoke(prompt)
+    docs = await retriever.ainvoke(prompt)
     context = "\n".join(
         doc.page_content
         for doc in docs
@@ -49,7 +58,7 @@ Interview Questions
     return {"retrieved_context":context}
 
 
-def question_agent(state):
+async def question_agent(state):
     prompt = f"""
     You are an AI Interviewer. Use these questions as context/inspiration: {state['retrieved_context']}.
     Strictly pick only ONE question based on the difficulty level of {state['difficulty']} and the level of experience of the candidate is {state['experience']} years.
@@ -68,13 +77,11 @@ def question_agent(state):
     - Maximum one sentence.
 """
     
-    response = llm.invoke(prompt)
-    asked = state["asked_questions"]
-    asked.append(response.content)
-    return {"question":response.content,"asked_questions":asked}
+    response = await llm.ainvoke(prompt)
+    return {"question":response.content,"asked_questions":[response.content]}
 
 
-def evaluation_agent(state):
+async def evaluation_agent(state):
     prompt = f"""
  You are an AI Evaluator. Based on the question and answer provided, evaluate the candidate.
  Question:{state['question']}
@@ -87,39 +94,31 @@ def evaluation_agent(state):
  }}
 """
     
-    response = llm.invoke(prompt)
+    response = await json_llm.ainvoke(prompt)
     
     try:
-        content = response.content
-        match = re.search(r"\{.*\}", content, re.DOTALL)
-        if match:
-            parsed = json.loads(match.group(0))
-        else:
-            parsed = json.loads(content)
-        
+        cleaned_content = clean_json(response.content)
+        parsed = json.loads(cleaned_content)
         score = int(parsed.get("score", 0))
-        feedback = parsed.get("feedback", response.content)
+        feedback = parsed.get("feedback", "No feedback provided.")
     except Exception as e:
         print(f"Error parsing evaluation JSON: {e}")
         score = 0
         feedback = response.content
 
-    history = state.get("history",[])
-    history.append({
-        "question":state["question"],
-        "answer":state["answer"],
-        "evaluation":feedback,
-        "score":score
-    })
-
     return {
         "score":score,
         "feedback":feedback,
-        "history":history
+        "history":[{
+            "question":state["question"],
+            "answer":state["answer"],
+            "evaluation":feedback,
+            "score":score
+        }]
     }
 
 
-def difficulty_agent(state):
+async def difficulty_agent(state):
     score = state["score"]
     
     if score>=8:
@@ -132,7 +131,7 @@ def difficulty_agent(state):
         "difficulty":difficulty
     }
 
-def followup_agent(state):
+async def followup_agent(state):
     prompt = f"""
 You are an interviewer. The candidate was previously asked this question: {state["question"]} to which candidate gave this answer: {state["answer"]}.
 After this answer to the question candidate got this feedback from the Judge {state["feedback"]}. This means the candidate is weak in this topic. 
@@ -143,17 +142,15 @@ Rules:
 - Also it should strictly be a follow up question.
 
 """
-    response = llm.invoke(prompt)
-    asked = state["asked_questions"]
-    asked.append(response.content)
+    response = await llm.ainvoke(prompt)
 
     return {
         "question": response.content,
-        "asked_question":asked,
+        "asked_questions":[response.content],
         "next_action":"answer_required"
     }
 
-def report_agent(state):
+async def report_agent(state):
     prompt = f"""
 Your task is to generate a Final Report based on the Interview History.
 Be Honest and Highlight all the Strong Areas and Weak Areas. Do not SugerCoat, stay raw and give feedbacks with utmost honesty.
@@ -175,19 +172,13 @@ You MUST output your report EXACTLY as a raw JSON object with no additional text
 }}
 """
     
-    response = llm.invoke(prompt)
+    response = await json_llm.ainvoke(prompt)
     
     try:
-        content = response.content
-        match = re.search(r"\{.*\}", content, re.DOTALL)
-        if match:
-            parsed_text = match.group(0)
-        else:
-            parsed_text = content
-        
         # Ensure it's valid JSON
-        json.loads(parsed_text)
-        final_report = parsed_text
+        cleaned_content = clean_json(response.content)
+        json.loads(cleaned_content)
+        final_report = cleaned_content
     except Exception as e:
         print(f"Error parsing report JSON: {e}")
         final_report = '{"overall_score": 0, "metrics": {"communication": 0, "problem_solving": 0, "technical_knowledge": 0, "confidence": 0, "pace": 0}, "strengths": [], "weaknesses": ["Failed to generate valid report"], "suggestions": []}'
