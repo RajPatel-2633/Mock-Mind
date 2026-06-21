@@ -203,6 +203,7 @@ const logoutUser = asyncHandler(async(req,res,next)=>{
     return res.status(200).json(new ApiResponse(200,null,"User Logged Out Successfully"));
     
 });
+
 const refreshAccessToken = asyncHandler(async(req,res,next)=>{
     const incomingRefreshToken = req.cookies.refreshToken;
     
@@ -242,4 +243,42 @@ const refreshAccessToken = asyncHandler(async(req,res,next)=>{
     }
 });
 
-export {registerUser,loginUser,getProfile,forgotPassword,verifyOTP,resetPassword,updateProfile,logoutUser,refreshAccessToken};
+const googleAuthCallback = asyncHandler(async(req,res,next)=>{
+        const user = req.user;
+
+        const accessCookieOptions = { 
+            maxAge: 1000*60*15,
+            httpOnly: true, 
+            secure: true, 
+            sameSite: "lax" 
+        };
+
+        const refreshCookieOptions = {
+            maxAge: 1000*60*60*24*7,
+            httpOnly: true,
+            secure: true,
+            sameSite: "lax" 
+        };
+    
+        const accessToken = jwt.sign(
+            { id: user._id,
+             role: user.role }, 
+            process.env.ACCESS_SECRET,
+            { 
+                expiresIn: "15m" 
+            });
+
+        const refreshToken = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.REFRESH_SECRET, 
+            { 
+                expiresIn: "7d"
+             });
+    
+        res.cookie("accessToken", accessToken, accessCookieOptions);
+        res.cookie("refreshToken", refreshToken, refreshCookieOptions);
+
+        res.redirect(`${process.env.BASE_URL}/dashboard`);
+})
+
+export {registerUser,loginUser,getProfile,forgotPassword,verifyOTP,resetPassword,updateProfile,logoutUser,refreshAccessToken,googleAuthCallback};
