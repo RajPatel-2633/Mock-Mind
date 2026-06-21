@@ -279,6 +279,6 @@ const googleAuthCallback = asyncHandler(async(req,res,next)=>{
         res.cookie("refreshToken", refreshToken, refreshCookieOptions);
 
         res.redirect(`${process.env.BASE_URL}/dashboard`);
-})
+});
 
 export {registerUser,loginUser,getProfile,forgotPassword,verifyOTP,resetPassword,updateProfile,logoutUser,refreshAccessToken,googleAuthCallback};
