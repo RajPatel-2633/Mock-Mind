@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Interview from "../models/Interview.models.js";
 import Question from "../models/Question.models.js";
 import { BadRequestError, InternalServerError, NotFoundError } from "../utils/ApiError.utils.js";
@@ -71,7 +72,9 @@ const startInterview = asyncHandler(async(req,res)=>{
     return res.status(200).json(new ApiResponse(200,{
         questionId:questionCollection._id,
         question:data.question,
-        difficulty:data.difficulty
+        difficulty:data.difficulty,
+        interviewType: interview.interviewType,
+        totalQuestions: interview.totalQuestions
     },"Interview Started Successfully"));
 
 });
@@ -92,7 +95,7 @@ const submitAnswer = asyncHandler(async(req,res)=>{
         baseURL:process.env.AI_MICROSERVICE_URL,
     });
 
-    const {data:evaluation} = await aiMicroservice.post("/submit-answeer",{
+    const {data:evaluation} = await aiMicroservice.post("/submit-answer",{
         session_id: interview._id.toString(),
         tech_stack: interview.techStack,
         difficulty: interview.difficulty,
@@ -104,7 +107,9 @@ const submitAnswer = asyncHandler(async(req,res)=>{
         feedback:"",
         history:[],
         asked_questions:[],
-        report:""
+        report:"",
+        current_question: interview.currentQuestion || 0,
+        total_questions: interview.totalQuestions || 5
     });
 
     questionDoc.answer = answer;
@@ -124,17 +129,10 @@ const submitAnswer = asyncHandler(async(req,res)=>{
         },"Interview Completed"));
     }
 
-    const {data:nextQuestion} = await aiMicroservice.post("/start-interview",{
-        session_id:interview._id.toString(),
-        tech_stack:interview.techStack,
-        difficulty:interview.difficulty,
-        experience:interview.experience
-    });
-
     const newQuestion = await Question.create({
         interview: interview._id,
-        question: nextQuestion.question,
-        difficulty: nextQuestion.difficulty
+        question: evaluation.question,
+        difficulty: evaluation.difficulty
     });
     await interview.save();
 
@@ -151,6 +149,7 @@ const submitAnswer = asyncHandler(async(req,res)=>{
 
 const generateReport = asyncHandler(async(req,res)=>{
      const {id} = req.params;
+     const {duration} = req.body;
 
      const interview = await Interview.findById(id);
      if(!interview){
@@ -181,6 +180,20 @@ const generateReport = asyncHandler(async(req,res)=>{
     });
 
     interview.report = data.report;
+
+    try {
+        const reportJson = JSON.parse(data.report);
+        interview.overallScore = reportJson.overall_score || 0;
+        interview.strengths = reportJson.strengths || [];
+        interview.weaknesses = reportJson.weaknesses || [];
+        interview.suggestions = reportJson.suggestions || [];
+    } catch (error) {
+        console.error("Failed to parse report JSON", error);
+    }
+
+    if (duration) {
+        interview.duration = duration;
+    }
 
     interview.status = "completed";
     
@@ -213,8 +226,7 @@ const getInterviewById = asyncHandler(async(req,res)=>{
     }
 
     const questions = await Question.find({
-        interview:id,
-        user:req.user.id
+        interview:id
     });
 
     if(questions.length===0){
@@ -244,5 +256,149 @@ const deleteInterview = asyncHandler(async(req,res)=>{
     return res.status(200).json(new ApiResponse(200,null,"Deleted Successfully"));
 });
 
+const getDashboardStats = asyncHandler(async(req, res) => {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    
+    const statsPipeline = await Interview.aggregate([
+        { $match: { user: userId } },
+        {
+            $facet: {
+                metrics: [
+                    {
+                        $group: {
+                            _id: null,
+                            totalInterviews: { $sum: 1 },
+                            totalScore: {
+                                $sum: {
+                                    $cond: [{ $and: [{ $eq: ["$status", "completed"] }, { $gt: ["$overallScore", 0] }] }, "$overallScore", 0]
+                                }
+                            },
+                            completedCount: {
+                                $sum: {
+                                    $cond: [{ $and: [{ $eq: ["$status", "completed"] }, { $gt: ["$overallScore", 0] }] }, 1, 0]
+                                }
+                            },
+                            totalPracticeTime: {
+                                $sum: {
+                                    $cond: [
+                                        { $gt: [{ $ifNull: ["$duration", 0] }, 0] }, "$duration",
+                                        {
+                                            $cond: [{ $eq: ["$status", "completed"] }, { $multiply: ["$totalQuestions", 5] }, 0]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                ],
+                recentInterviews: [
+                    { $sort: { createdAt: -1 } },
+                    { $limit: 4 },
+                    { $project: { _id: 1, techStack: 1, role: 1, status: 1, overallScore: 1, createdAt: 1 } }
+                ],
+                dates: [
+                    { $sort: { createdAt: -1 } },
+                    { $project: { createdAt: 1, _id: 0 } }
+                ]
+            }
+        }
+    ]);
 
-export {createInterview,startInterview,submitAnswer,generateReport,getInterviews,getInterviewById,deleteInterview};
+    const result = statsPipeline[0];
+    const metrics = result.metrics[0] || { totalInterviews: 0, totalScore: 0, completedCount: 0, totalPracticeTime: 0 };
+    
+    const totalInterviews = metrics.totalInterviews;
+    const averageScore = metrics.completedCount > 0 ? Math.round(metrics.totalScore / metrics.completedCount) : 0;
+    const totalPracticeTime = metrics.totalPracticeTime;
+    const recentInterviews = result.recentInterviews.map(i => ({
+        id: i._id,
+        techStack: i.techStack,
+        role: i.role,
+        status: i.status,
+        overallScore: i.overallScore,
+        createdAt: i.createdAt
+    }));
+
+    // Calculate Day Streak
+    let streak = 0;
+    let currentDate = new Date();
+    currentDate.setHours(0,0,0,0);
+    
+    const uniqueDates = [...new Set(result.dates.map(i => {
+        const d = new Date(i.createdAt);
+        d.setHours(0,0,0,0);
+        return d.getTime();
+    }))];
+
+    let tempDate = new Date(currentDate);
+    for (let time of uniqueDates) {
+        if (time === tempDate.getTime()) {
+            streak++;
+            tempDate.setDate(tempDate.getDate() - 1);
+        } else if (time < tempDate.getTime()) {
+            break;
+        }
+    }
+    if (streak === 0 && uniqueDates.length > 0) {
+        let yesterday = new Date(currentDate);
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (uniqueDates[0] === yesterday.getTime()) {
+            streak = 1;
+            tempDate = new Date(yesterday);
+            tempDate.setDate(tempDate.getDate() - 1);
+            for (let i = 1; i < uniqueDates.length; i++) {
+                if (uniqueDates[i] === tempDate.getTime()) {
+                    streak++;
+                    tempDate.setDate(tempDate.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    return res.status(200).json(new ApiResponse(200, {
+        totalInterviews,
+        averageScore,
+        totalPracticeTime,
+        dayStreak: streak,
+        recentInterviews
+    }, "Dashboard Stats Fetched Successfully"));
+});
+
+const transcribeAudio = asyncHandler(async (req, res) => {
+    if (!req.file) {
+        throw new BadRequestError("Audio file is required");
+    }
+
+    try {
+        const audioBlob = new Blob([req.file.buffer], { type: req.file.mimetype });
+        const formData = new FormData();
+        formData.append("file", audioBlob, req.file.originalname || "audio.webm");
+        formData.append("model", "whisper-large-v3");
+        formData.append("response_format", "json");
+
+        const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${process.env.GROQ_API_KEY}` },
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Groq API Error:", errorText);
+            throw new InternalServerError("Failed to transcribe audio via Groq");
+        }
+
+        const data = await response.json();
+        
+        return res.status(200).json(
+            new ApiResponse(200, { text: data.text }, "Audio transcribed successfully")
+        );
+    } catch (error) {
+        console.error("Transcription error:", error);
+        throw new InternalServerError("Error during transcription process");
+    }
+});
+
+export {createInterview,startInterview,submitAnswer,generateReport,getInterviews,getInterviewById,deleteInterview,getDashboardStats,transcribeAudio};
