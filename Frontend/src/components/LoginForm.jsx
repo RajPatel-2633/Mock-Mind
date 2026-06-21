@@ -24,7 +24,7 @@ export default function LoginForm() {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'}/auth/google`;
+    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/v1/auth/google`;
   };
 
   const GoogleIcon = (
