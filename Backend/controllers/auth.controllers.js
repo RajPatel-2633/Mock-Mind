@@ -45,13 +45,13 @@ const loginUser = asyncHandler(async(req,res,next)=>{
         maxAge:1000*60*15,
         httpOnly:true,
         secure:true,
-        sameSite:"lax"
+        sameSite:"none"
     }
     const refreshCookieOptions={
         maxAge:1000*60*15,
         httpOnly:true,
         secure:true,
-        sameSite:"lax"
+        sameSite:"none"
     }
 
     const accessToken = jwt.sign({
@@ -191,13 +191,13 @@ const logoutUser = asyncHandler(async(req,res,next)=>{
     res.clearCookie('accessToken',{
         secure:true,
         httpOnly:true,
-        sameSite:"lax"
+        sameSite:"none"
     });
 
     res.clearCookie('refreshToken',{
         secure:true,
         httpOnly:true,
-        sameSite:"lax"
+        sameSite:"none"
     })
     
     return res.status(200).json(new ApiResponse(200,null,"User Logged Out Successfully"));
@@ -231,7 +231,7 @@ const refreshAccessToken = asyncHandler(async(req,res,next)=>{
             maxAge:1000*60*15,
             httpOnly:true,
             secure:true,
-            sameSite:"lax"
+            sameSite:"none"
         }
 
         res.cookie("accessToken",accessToken,accessCookieOptions);
@@ -250,14 +250,14 @@ const googleAuthCallback = asyncHandler(async(req,res,next)=>{
             maxAge: 1000*60*15,
             httpOnly: true, 
             secure: true, 
-            sameSite: "lax" 
+            sameSite: "none" 
         };
 
         const refreshCookieOptions = {
             maxAge: 1000*60*60*24*7,
             httpOnly: true,
             secure: true,
-            sameSite: "lax" 
+            sameSite: "none" 
         };
     
         const accessToken = jwt.sign(
