@@ -19,7 +19,7 @@ export default function TechCard({ title, icon, isSelected, onClick }) {
         </div>
       )}
       
-      <div className={cn("mb-4 transition-transform duration-300 flex-1 flex items-center", isSelected ? "scale-110" : "group-hover:scale-110")}>
+      <div className={cn("mb-4 transition-transform duration-300 flex items-center justify-center w-20 h-20", isSelected ? "scale-110" : "group-hover:scale-110")}>
         {icon}
       </div>
       <h3 className="text-sm font-semibold text-white mt-auto">{title}</h3>

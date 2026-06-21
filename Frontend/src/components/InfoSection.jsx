@@ -21,7 +21,7 @@ export default function InfoSection({
         <BotMessageSquare size={36} className="text-accentOrange drop-shadow-[0_0_10px_rgba(249,115,22,0.4)]" />
         <div>
           <h2 className="text-2xl font-bold">
-            <span className="text-accentOrange">AI</span> Interview
+            <span className="text-accentOrange">Mock</span> Mind
           </h2>
           <p className="text-secondary text-sm">Practice. Speak. Improve.</p>
         </div>

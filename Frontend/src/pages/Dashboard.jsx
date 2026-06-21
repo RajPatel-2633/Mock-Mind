@@ -1,47 +1,61 @@
-import { Bell, Plus, BarChart2, TrendingUp, Star, Calendar, Briefcase, Code, Mic, Sparkles, Lightbulb, ArrowRight, Menu } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, Plus, BarChart2, TrendingUp, Star, Calendar, Briefcase, Code, Mic, Sparkles, Lightbulb, ArrowRight, Menu, Clock } from "lucide-react";
 import Button from "../components/ui/Button";
 import HeroBanner from "../components/dashboard/HeroBanner";
 import StatCard from "../components/dashboard/StatCard";
 import RecentMockRow from "../components/dashboard/RecentMockRow";
 import StepItem from "../components/dashboard/StepItem";
 import { motion } from "framer-motion";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, Link } from "react-router-dom";
+import useAuthStore from "../store/useAuthStore";
+import api from "../lib/axios";
 
 export default function Dashboard() {
   const { setIsSidebarOpen } = useOutletContext();
+  const { user } = useAuthStore();
   
-  const recentMocks = [
-    { icon: Briefcase, title: "Frontend Developer Mock", role: "Frontend Developer", score: 8.6, date: "May 12, 2024", time: "02:30 PM" },
-    { icon: Briefcase, title: "Product Manager Mock", role: "Product Manager", score: 7.2, date: "May 10, 2024", time: "11:15 AM" },
-    { icon: BarChart2, title: "Data Analyst Mock", role: "Data Analyst", score: 8.1, date: "May 8, 2024", time: "04:45 PM" },
-    { icon: Code, title: "Backend Developer Mock", role: "Backend Developer", score: 6.9, date: "May 6, 2024", time: "10:20 AM" },
-  ];
+  const [stats, setStats] = useState({
+    totalInterviews: 0,
+    averageScore: 0,
+    totalPracticeTime: 0,
+    dayStreak: 0,
+    recentInterviews: []
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { data } = await api.get('/interview/dashboard-stats');
+        setStats(data.data);
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
 
   return (
     <div className="w-full pb-10">
       {/* Header */}
-      <header className="flex items-center justify-between mb-8">
+      <header className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-5">
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="w-11 h-11 flex items-center justify-center rounded-xl bg-black/40 border border-white/5 text-secondary hover:text-white hover:bg-white/5 transition-all shadow-lg"
-          >
-            <Menu size={22} />
-          </button>
+
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Welcome back, John! 👋</h1>
+            <h1 className="text-2xl font-bold text-white mb-1">Welcome back, {user?.name?.split(' ')[0] || 'User'}! 👋</h1>
             <p className="text-sm text-secondary">Let's practice and build your confidence.</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <button className="w-10 h-10 rounded-full bg-[#141414] border border-borderCard flex items-center justify-center text-secondary hover:text-white transition-colors relative">
-            <Bell size={18} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-accentOrange rounded-full"></span>
-          </button>
+
           <div className="w-56">
-            <Button variant="primary">
-              <Plus size={16} /> Start New Mock Interview
-            </Button>
+            <Link to="/mock-interviews">
+              <Button variant="primary">
+                <Plus size={16} /> Start New Mock Interview
+              </Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -51,10 +65,10 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
-        <StatCard icon={BarChart2} title="Mocks Taken" value="12" highlight="Total Interviews" delay={0.1} />
-        <StatCard icon={TrendingUp} title="Average Score" value="7.8" subValue="/10" highlight="Across all mocks" delay={0.2} />
-        <StatCard icon={Star} title="Best Score" value="9.3" subValue="/10" highlight={<span className="text-accentOrange">Keep it up! 🔥</span>} delay={0.3} />
-        <StatCard icon={Calendar} title="Last Interview" value="May 12, 2024" highlight="2:30 PM" delay={0.4} />
+        <StatCard icon={BarChart2} title="Mocks Taken" value={stats.totalInterviews.toString()} highlight="Total Interviews" delay={0.1} />
+        <StatCard icon={TrendingUp} title="Average Score" value={stats.averageScore.toString()} subValue="/100" highlight="Across all mocks" delay={0.2} />
+        <StatCard icon={Clock} title="Practice Time" value={stats.totalPracticeTime.toString()} subValue=" mins" highlight={<span className="text-accentOrange">Keep it up! 🔥</span>} delay={0.3} />
+        <StatCard icon={Calendar} title="Day Streak" value={stats.dayStreak.toString()} highlight="Consecutive days" delay={0.4} />
       </div>
 
       {/* Bottom Layout */}
@@ -71,15 +85,43 @@ export default function Dashboard() {
             <h3 className="text-base font-bold text-white">Recent Mocks</h3>
           </div>
           <div className="flex flex-col flex-1">
-            {recentMocks.map((mock, idx) => (
-              <RecentMockRow key={idx} {...mock} />
-            ))}
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center flex-1 h-32">
+                <div className="w-8 h-8 border-2 border-white/10 border-t-accentOrange rounded-full animate-spin mb-3"></div>
+                <p className="text-secondary text-xs">Loading recent mocks...</p>
+              </div>
+            ) : stats.recentInterviews.length > 0 ? (
+              stats.recentInterviews.map((mock) => (
+                <RecentMockRow 
+                  key={mock.id} 
+                  icon={Briefcase} 
+                  title={`${mock.techStack} Mock`} 
+                  role={mock.role} 
+                  score={mock.overallScore} 
+                  date={new Date(mock.createdAt).toLocaleDateString()} 
+                  time={new Date(mock.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
+                />
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center flex-1 bg-white/[0.02] border border-white/5 rounded-xl p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-accentOrange/10 border border-accentOrange/20 flex items-center justify-center mb-4">
+                  <Sparkles size={28} className="text-accentOrange" />
+                </div>
+                <h4 className="text-white font-semibold mb-2">No Mocks Yet</h4>
+                <p className="text-secondary text-sm max-w-[250px] mb-6">Your recent interview history will appear here once you complete a mock interview.</p>
+                <Link to="/mock-interviews">
+                  <Button variant="primary" className="text-sm px-6 py-2">Start First Mock ✨</Button>
+                </Link>
+              </div>
+            )}
           </div>
-          <div className="mt-4 pt-4 border-t border-borderCard text-center">
-            <a href="#" className="text-sm text-accentOrange font-medium hover:text-accentOrangeHover transition-colors flex items-center justify-center gap-1">
-              View all history <ArrowRight size={14} />
-            </a>
-          </div>
+          {stats.recentInterviews.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-borderCard text-center">
+              <Link to="/history" className="text-sm text-accentOrange font-medium hover:text-accentOrangeHover transition-colors flex items-center justify-center gap-1">
+                View all history <ArrowRight size={14} />
+              </Link>
+            </div>
+          )}
         </motion.div>
 
         {/* How It Works */}

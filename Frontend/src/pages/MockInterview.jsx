@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, HelpCircle, Sun, MessageSquare, Mic, Star, CheckCircle2, ArrowRight, ChevronDown, User, Code, Briefcase, BarChart, Clock, Sparkles, BrainCircuit, Lightbulb, Rocket } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import api from "../lib/axios";
 import Stepper from "../components/mock-interview/Stepper";
 import TechCard from "../components/mock-interview/TechCard";
 import Button from "../components/ui/Button";
@@ -8,16 +9,15 @@ import { ReactIcon, NodeIcon, PythonIcon, JavaIcon, MernIcon, AIIcon, GenAIIcon,
 import { cn } from "../lib/utils";
 
 const techStacks = [
-  { id: "react", title: "ReactJS", icon: <ReactIcon />, description: "Questions will be focused on React concepts, hooks, state management, components, lifecycle, and best practices.", role: "Suitable for frontend developer roles." },
-  { id: "node", title: "NodeJS", icon: <NodeIcon />, description: "Focus on Event Loop, Express.js, APIs, async programming, and backend architecture.", role: "Suitable for backend developer roles." },
-  { id: "mern", title: "MERN Stack", icon: <MernIcon />, description: "Full-stack questions covering MongoDB, Express, React, and Node.js integration.", role: "Suitable for full-stack developer roles." },
-  { id: "aiml", title: "AI / ML", icon: <AIIcon />, description: "Questions on machine learning algorithms, model training, and data processing.", role: "Suitable for ML engineers and Data Scientists." },
-  { id: "genai", title: "Gen-AI", icon: <GenAIIcon />, description: "Focus on LLMs, prompt engineering, RAG, and generative architectures.", role: "Suitable for AI Engineers." },
-  { id: "java", title: "Java Developer", icon: <JavaIcon />, description: "Core Java, multithreading, collections, JVM memory management, and Spring Boot.", role: "Suitable for enterprise backend roles." },
-  { id: "python", title: "Python Developer", icon: <PythonIcon />, description: "Python fundamentals, data structures, generators, Django/FastAPI, and scripting.", role: "Suitable for backend and automation roles." },
-  { id: "dsa", title: "Data Structures & Algorithms", icon: <DsaIcon />, description: "Algorithmic problem solving, Big O notation, trees, graphs, and dynamic programming.", role: "Suitable for any software engineering interview." },
-  { id: "system_design", title: "System Design", icon: <SystemDesignIcon />, description: "Scalability, microservices, databases, caching, and designing large-scale systems.", role: "Suitable for senior developer and architect roles." },
-  { id: "other", title: "Other (Custom)", icon: <OtherIcon />, description: "Define your own custom role and specify the technologies you want to be tested on.", role: "Suitable for specialized or niche roles." },
+  { id: "react", title: "ReactJS", icon: <div className="w-full h-full bg-white rounded-md flex items-center justify-center p-1 shadow-sm"><ReactIcon /></div>, description: "Questions will be focused on React concepts, hooks, state management, components, lifecycle, and best practices.", role: "Suitable for frontend developer roles." },
+  { id: "node", title: "NodeJS", icon: <img src="/NodeJS.jpg" alt="NodeJS" className="w-full h-full object-contain rounded-md" />, description: "Focus on Event Loop, Express.js, APIs, async programming, and backend architecture.", role: "Suitable for backend developer roles." },
+  { id: "mern", title: "MERN Stack", icon: <img src="/MERN.png" alt="MERN Stack" className="w-full h-full object-contain bg-white rounded-md shadow-sm" />, description: "Full-stack questions covering MongoDB, Express, React, and Node.js integration.", role: "Suitable for full-stack developer roles." },
+  { id: "aiml", title: "AI / ML", icon: <img src="/AIML.png" alt="AI / ML" className="w-full h-full object-contain rounded-md" />, description: "Questions on machine learning algorithms, model training, and data processing.", role: "Suitable for ML engineers and Data Scientists." },
+  { id: "genai", title: "Gen-AI", icon: <img src="/genai.png" alt="Gen-AI" className="w-full h-full object-contain bg-white rounded-md shadow-sm" />, description: "Focus on LLMs, prompt engineering, RAG, and generative architectures.", role: "Suitable for AI Engineers." },
+  { id: "java", title: "Java Developer", icon: <img src="/Java.png" alt="Java" className="w-full h-full object-contain rounded-md" />, description: "Core Java, multithreading, collections, JVM memory management, and Spring Boot.", role: "Suitable for enterprise backend roles." },
+  { id: "python", title: "Python Developer", icon: <img src="/python.jpeg" alt="Python" className="w-full h-full object-contain rounded-md" />, description: "Python fundamentals, data structures, generators, Django/FastAPI, and scripting.", role: "Suitable for backend and automation roles." },
+  { id: "dsa", title: "Data Structures & Algorithms", icon: <img src="/DSA.png" alt="DSA" className="w-full h-full object-contain rounded-md" />, description: "Algorithmic problem solving, Big O notation, trees, graphs, and dynamic programming.", role: "Suitable for any software engineering interview." },
+  { id: "system_design", title: "System Design", icon: <img src="/System-Design.jpeg" alt="System Design" className="w-full h-full object-contain bg-white rounded-md shadow-sm" />, description: "Scalability, microservices, databases, caching, and designing large-scale systems.", role: "Suitable for senior developer and architect roles." }
 ];
 
 const experienceLevels = ["Fresher (0-1 Yrs)", "Junior (1-3 Yrs)", "Mid (3-5 Yrs)", "Senior (5+ Yrs)"];
@@ -28,13 +28,11 @@ const difficulties = [
   { id: "hard", label: "Hard", desc: "Advanced concepts" }
 ];
 
-const interviewTypes = [
-  { id: "technical", label: "Technical Interview", icon: <Code size={20} className="text-accentOrange" />, desc: "Focus on coding, concepts and problem solving" },
-  { id: "behavioral", label: "Behavioral Interview", icon: <User size={20} className="text-secondary" />, desc: "Focus on soft skills, experience and situational questions" }
-];
 
 export default function MockInterview() {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
+  const [isCreating, setIsCreating] = useState(false);
   
   // Step 1 State
   const [selectedTech, setSelectedTech] = useState(techStacks[0]);
@@ -45,6 +43,29 @@ export default function MockInterview() {
   const [difficulty, setDifficulty] = useState("Medium");
   const [type, setType] = useState("Technical Interview");
   const [numQuestions, setNumQuestions] = useState("6 Questions");
+
+  const handleStartInterview = async () => {
+    setIsCreating(true);
+    try {
+      const payload = {
+        techStack: selectedTech.title,
+        role: role,
+        experience: experience,
+        difficulty: difficulty.toLowerCase(),
+        interviewType: type.includes("Behavioral") ? "behavioural" : "technical",
+        totalQuestions: parseInt(numQuestions) || 5
+      };
+      
+      const { data } = await api.post('/interview/createInterview', payload);
+      const interviewId = data.data.interviewId;
+      navigate(`/live-interview/${interviewId}`);
+    } catch (error) {
+      console.error("Failed to create interview", error);
+      alert(error.response?.data?.message || "Failed to start interview");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   return (
     <div className="w-full pb-20">
@@ -86,7 +107,16 @@ export default function MockInterview() {
                   title={tech.title} 
                   icon={tech.icon} 
                   isSelected={selectedTech.id === tech.id}
-                  onClick={() => setSelectedTech(tech)}
+                  onClick={() => {
+                    setSelectedTech(tech);
+                    if (["node", "java", "python"].includes(tech.id)) setRole("Backend Developer");
+                    else if (tech.id === "mern") setRole("Full Stack Developer");
+                    else if (tech.id === "aiml") setRole("Data Scientist");
+                    else if (tech.id === "genai") setRole("AI Engineer");
+                    else if (tech.id === "system_design") setRole("Senior Developer");
+                    else if (tech.id === "dsa") setRole("Software Engineer");
+                    else setRole("Frontend Developer");
+                  }}
                 />
               ))}
             </div>
@@ -94,11 +124,8 @@ export default function MockInterview() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 mt-8">
             <div className="glass-panel border border-borderCard rounded-2xl p-6 relative overflow-hidden">
-              <div className="absolute -right-10 -top-10 opacity-[0.03] pointer-events-none scale-150">
-                {selectedTech.icon}
-              </div>
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center scale-75 origin-left">
+                <div className="w-10 h-10 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center p-1 origin-left">
                   {selectedTech.icon}
                 </div>
                 <h3 className="text-base font-bold text-white">About {selectedTech.title} Interview</h3>
@@ -187,6 +214,9 @@ export default function MockInterview() {
                     <option>Backend Developer</option>
                     <option>Full Stack Developer</option>
                     <option>Data Scientist</option>
+                    <option>AI Engineer</option>
+                    <option>Senior Developer</option>
+                    <option>Software Engineer</option>
                   </select>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">
                      <ChevronDown size={16} />
@@ -242,35 +272,7 @@ export default function MockInterview() {
                 </div>
               </div>
 
-              {/* Interview Type */}
-              <div>
-                <label className="block text-sm font-semibold text-white mb-3">Interview Type</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {interviewTypes.map(typ => (
-                    <div 
-                      key={typ.id}
-                      onClick={() => setType(typ.label)}
-                      className={cn(
-                        "relative flex items-start gap-4 p-5 rounded-xl border cursor-pointer transition-all duration-300",
-                        type === typ.label
-                          ? "border-accentOrange bg-accentOrange/5 shadow-[0_0_15px_rgba(249,115,22,0.1)]"
-                          : "border-white/10 bg-transparent hover:bg-white/[0.02]"
-                      )}
-                    >
-                      {type === typ.label && (
-                        <div className="absolute top-3 right-3 text-accentOrange animate-fade-in">
-                          <CheckCircle2 size={18} />
-                        </div>
-                      )}
-                      <div className="mt-0.5">{typ.icon}</div>
-                      <div>
-                        <h4 className={cn("text-sm font-semibold mb-1 transition-colors", type === typ.label ? "text-white" : "text-gray-300")}>{typ.label}</h4>
-                        <p className="text-xs text-secondary">{typ.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+
 
               {/* Number of Questions */}
               <div>
@@ -320,7 +322,7 @@ export default function MockInterview() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                   <div className="flex items-center gap-3 text-accentOrange"><Code size={16} /><span className="text-sm font-medium text-secondary">Tech Stack</span></div>
-                  <div className="flex items-center gap-2"><div className="w-5 h-5 flex items-center justify-center scale-75">{selectedTech.icon}</div><span className="text-sm font-semibold text-white">{selectedTech.title}</span></div>
+                  <div className="flex items-center gap-2"><div className="w-6 h-6 flex items-center justify-center">{selectedTech.icon}</div><span className="text-sm font-semibold text-white">{selectedTech.title}</span></div>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                   <div className="flex items-center gap-3 text-accentOrange"><Briefcase size={16} /><span className="text-sm font-medium text-secondary">Role</span></div>
@@ -334,10 +336,7 @@ export default function MockInterview() {
                   <div className="flex items-center gap-3 text-accentOrange"><BarChart size={16} className="rotate-90" /><span className="text-sm font-medium text-secondary">Difficulty Level</span></div>
                   <div className="flex items-center gap-2"><span className="text-sm font-semibold text-white">{difficulty}</span></div>
                 </div>
-                <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                  <div className="flex items-center gap-3 text-accentOrange"><Code size={16} /><span className="text-sm font-medium text-secondary">Interview Type</span></div>
-                  <div className="flex items-center gap-2"><span className="text-sm font-semibold text-white">{type}</span></div>
-                </div>
+
                 <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                   <div className="flex items-center gap-3 text-accentOrange"><HelpCircle size={16} /><span className="text-sm font-medium text-secondary">Number of Questions</span></div>
                   <div className="flex items-center gap-2"><span className="text-sm font-semibold text-white">{numQuestions}</span></div>
@@ -460,11 +459,9 @@ export default function MockInterview() {
 
             {/* Actions */}
             <div className="flex flex-col items-center gap-4 w-full max-w-[240px]">
-              <Link to="/live-interview" className="w-full">
-                <Button variant="primary">
-                  Start Interview <ArrowRight size={18} />
-                </Button>
-              </Link>
+              <Button variant="primary" onClick={handleStartInterview} disabled={isCreating} className="w-full">
+                {isCreating ? "Preparing..." : "Start Interview"} <ArrowRight size={18} />
+              </Button>
               <button 
                 onClick={() => setCurrentStep(2)}
                 className="text-xs text-secondary hover:text-white underline underline-offset-4 transition-colors"
@@ -482,7 +479,7 @@ export default function MockInterview() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                   <div className="flex items-center gap-3 text-accentOrange"><Code size={16} /><span className="text-sm font-medium text-secondary">Tech Stack</span></div>
-                  <div className="flex items-center gap-2"><div className="w-5 h-5 flex items-center justify-center scale-75">{selectedTech.icon}</div><span className="text-sm font-semibold text-white">{selectedTech.title}</span></div>
+                  <div className="flex items-center gap-2"><div className="w-6 h-6 flex items-center justify-center">{selectedTech.icon}</div><span className="text-sm font-semibold text-white">{selectedTech.title}</span></div>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                   <div className="flex items-center gap-3 text-accentOrange"><Briefcase size={16} /><span className="text-sm font-medium text-secondary">Role</span></div>
@@ -496,10 +493,7 @@ export default function MockInterview() {
                   <div className="flex items-center gap-3 text-accentOrange"><BarChart size={16} className="rotate-90" /><span className="text-sm font-medium text-secondary">Difficulty Level</span></div>
                   <div className="flex items-center gap-2"><span className="text-sm font-semibold text-white">{difficulty}</span></div>
                 </div>
-                <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                  <div className="flex items-center gap-3 text-accentOrange"><Code size={16} /><span className="text-sm font-medium text-secondary">Interview Type</span></div>
-                  <div className="flex items-center gap-2"><span className="text-sm font-semibold text-white">{type}</span></div>
-                </div>
+
                 <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                   <div className="flex items-center gap-3 text-accentOrange"><HelpCircle size={16} /><span className="text-sm font-medium text-secondary">Number of Questions</span></div>
                   <div className="flex items-center gap-2"><span className="text-sm font-semibold text-white">{numQuestions}</span></div>
