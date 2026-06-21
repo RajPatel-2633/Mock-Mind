@@ -149,7 +149,7 @@ const verifyOTP = asyncHandler(async(req,res,next)=>{
     user.OTP=null;
     user.OTP_Expiry=null;
     await user.save();
-    return res.status(200).json(new ApiResponse("OTP verified successfully"));
+    return res.status(200).json(new ApiResponse(200, null, "OTP verified successfully"));
 });
 
 const resetPassword = asyncHandler(async(req,res,next)=>{
@@ -203,5 +203,43 @@ const logoutUser = asyncHandler(async(req,res,next)=>{
     return res.status(200).json(new ApiResponse(200,null,"User Logged Out Successfully"));
     
 });
+const refreshAccessToken = asyncHandler(async(req,res,next)=>{
+    const incomingRefreshToken = req.cookies.refreshToken;
+    
+    if(!incomingRefreshToken){
+        throw new UnauthorizedError("Unauthorized request");
+    }
 
-export {registerUser,loginUser,getProfile,forgotPassword,verifyOTP,resetPassword,updateProfile,logoutUser};
+    try {
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_SECRET);
+        
+        const user = await User.findById(decodedToken.id);
+        
+        if(!user){
+            throw new UnauthorizedError("Invalid Refresh Token");
+        }
+        
+        const accessToken = jwt.sign({
+            id:user._id,
+            role:user.role
+        },process.env.ACCESS_SECRET,{
+            expiresIn:"15m"
+        });
+
+        const accessCookieOptions={
+            maxAge:1000*60*15,
+            httpOnly:true,
+            secure:true,
+            sameSite:"lax"
+        }
+
+        res.cookie("accessToken",accessToken,accessCookieOptions);
+        
+        return res.status(200).json(new ApiResponse(200,accessToken,"Access Token Refreshed Successfully"));
+
+    } catch (error) {
+        throw new UnauthorizedError("Invalid or Expired Refresh Token");
+    }
+});
+
+export {registerUser,loginUser,getProfile,forgotPassword,verifyOTP,resetPassword,updateProfile,logoutUser,refreshAccessToken};
