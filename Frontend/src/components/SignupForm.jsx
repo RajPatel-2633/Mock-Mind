@@ -1,15 +1,32 @@
+import { useState } from 'react';
 import { Mail, Lock, ShieldCheck, User } from 'lucide-react';
 import Input from './ui/Input';
 import Button from './ui/Button';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
+import useAuthStore from '../store/useAuthStore';
 
 export default function SignupForm() {
   const navigate = useNavigate();
+  const { signup, isLoading, error, clearError } = useAuthStore();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
-    navigate('/dashboard');
+    clearError();
+    try {
+      await signup(name, email, password);
+      // Registration successful, navigate to login page so they can login.
+      navigate('/login');
+    } catch (err) {
+      // Handled in store
+    }
+  };
+
+  const handleGoogleSignup = () => {
+    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'}/auth/google`;
   };
 
   const GoogleIcon = (
@@ -44,22 +61,50 @@ export default function SignupForm() {
         </div>
 
         <form onSubmit={handleSignup} className="flex flex-col gap-3">
+          {error && (
+            <div className="p-2 bg-red-500/10 border border-red-500/20 rounded text-red-500 text-xs text-center">
+              {error}
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium mb-1 text-gray-200">Full Name</label>
-            <Input icon={User} type="text" placeholder="Enter your full name" />
+            <Input 
+              icon={User} 
+              type="text" 
+              placeholder="Enter your full name" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
           </div>
 
           <div>
             <label className="block text-xs font-medium mb-1 text-gray-200">Email</label>
-            <Input icon={Mail} type="email" placeholder="Enter your email" />
+            <Input 
+              icon={Mail} 
+              type="email" 
+              placeholder="Enter your email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
 
           <div>
             <label className="block text-xs font-medium mb-1 text-gray-200">Password</label>
-            <Input icon={Lock} type="password" placeholder="Create a password" />
+            <Input 
+              icon={Lock} 
+              type="password" 
+              placeholder="Create a password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
           </div>
 
-          <Button type="submit" variant="primary" className="mt-1">Sign Up</Button>
+          <Button type="submit" variant="primary" className="mt-1" disabled={isLoading}>
+            {isLoading ? 'Signing up...' : 'Sign Up'}
+          </Button>
         </form>
 
         <div className="flex items-center my-4 text-secondary">
@@ -68,9 +113,8 @@ export default function SignupForm() {
           <div className="flex-1 h-px bg-borderCard"></div>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Button variant="secondary" iconNode={GoogleIcon}>Sign up with Google</Button>
-          <Button variant="secondary" iconNode={MicrosoftIcon}>Sign up with Microsoft</Button>
+        <div className="flex flex-col gap-2 mb-4">
+          <Button variant="secondary" iconNode={GoogleIcon} onClick={handleGoogleSignup}>Sign up with Google</Button>
         </div>
 
         <div className="text-center mt-4 text-xs text-secondary">
