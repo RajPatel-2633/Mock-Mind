@@ -15,8 +15,8 @@ export default {
         borderCard: 'rgba(255, 255, 255, 0.06)',
         primary: '#ffffff',
         secondary: '#a1a1aa',
-        accentOrange: '#f97316',
-        accentOrangeHover: '#ea580c',
+        accentOrange: '#ff5c00',
+        accentOrangeHover: '#e05000',
       },
       animation: {
         'fade-in': 'fadeIn 0.6s ease-out forwards',
