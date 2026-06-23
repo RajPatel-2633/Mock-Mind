@@ -16,14 +16,30 @@ const Settings = lazy(() => import('./pages/Settings'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Global Loader
-const PageLoader = () => (
-  <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white">
-    <div className="flex flex-col items-center gap-4">
-      <div className="w-12 h-12 border-4 border-white/10 border-t-accentOrange rounded-full animate-spin"></div>
-      <p className="text-sm font-medium tracking-widest text-accentOrange uppercase">Loading</p>
+const PageLoader = () => {
+  const [showSlowMessage, setShowSlowMessage] = React.useState(false);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSlowMessage(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-white/10 border-t-accentOrange rounded-full animate-spin"></div>
+        <p className="text-sm font-medium tracking-widest text-accentOrange uppercase">Loading</p>
+        {showSlowMessage && (
+          <p className="text-xs text-secondary mt-2 text-center max-w-xs animate-pulse">
+            Please wait, the server is waking up...<br/>(This can take up to 50 seconds on free hosting)
+          </p>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const ProtectedRoute = () => {
   const { isAuthenticated, isCheckingAuth } = useAuthStore();
