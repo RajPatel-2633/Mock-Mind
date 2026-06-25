@@ -55,7 +55,7 @@ export default function HeroBanner() {
   }, []);
 
   return (
-    <div className="relative w-full max-w-[1100px] mx-auto rounded-2xl overflow-hidden min-h-[250px] md:min-h-[400px] lg:min-h-[500px] flex items-center justify-center">
+    <div className="relative w-full max-w-[1100px] mx-auto rounded-2xl overflow-hidden aspect-[4/3] md:aspect-[21/9] lg:aspect-[2.5/1]">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSlide}
@@ -64,14 +64,14 @@ export default function HeroBanner() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
           onClick={() => navigate('/mock-interviews')}
-          className="w-full relative flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+          className="absolute inset-0 w-full h-full flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
         >
 
           {/* Main Crisp Image */}
           <img 
             src={slides[currentSlide].image} 
             alt={slides[currentSlide].imageAlt} 
-            className="w-full h-auto max-h-[300px] md:max-h-[400px] lg:max-h-[550px] object-contain block relative z-10" 
+            className="w-full h-full object-contain block relative z-10" 
           />
         </motion.div>
       </AnimatePresence>

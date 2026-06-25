@@ -34,7 +34,18 @@ export default function Dashboard() {
         setIsLoading(false);
       }
     };
+
+    // Background ping to wake up the Hugging Face AI server early
+    const wakeUpAI = async () => {
+      try {
+        await api.get('/interview/wake-up');
+      } catch (error) {
+        // Silently ignore errors since it's just a background ping
+      }
+    };
+
     fetchStats();
+    wakeUpAI();
   }, []);
 
   return (
