@@ -1,11 +1,13 @@
 import express from "express";
 import {authMiddleware} from "../middleware/auth.middleware.js"
-import {createInterview,startInterview,submitAnswer,generateReport,getInterviews,getInterviewById,deleteInterview,getDashboardStats,transcribeAudio} from "../controllers/interview.controllers.js"
+import {createInterview,startInterview,submitAnswer,generateReport,getInterviews,getInterviewById,deleteInterview,getDashboardStats,transcribeAudio,wakeUpAI} from "../controllers/interview.controllers.js"
 import multer from "multer";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
+
+router.get("/wake-up", wakeUpAI);
 
 router.post("/createInterview",authMiddleware,createInterview);
 router.post("/startInterview/:id",authMiddleware,startInterview);

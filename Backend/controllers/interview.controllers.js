@@ -401,4 +401,16 @@ const transcribeAudio = asyncHandler(async (req, res) => {
     }
 });
 
-export {createInterview,startInterview,submitAnswer,generateReport,getInterviews,getInterviewById,deleteInterview,getDashboardStats,transcribeAudio};
+const wakeUpAI = asyncHandler(async(req, res) => {
+    try {
+        const aiMicroservice = axios.create({
+            baseURL: process.env.AI_MICROSERVICE_URL
+        });
+        await aiMicroservice.post("/"); // The HF app has @app.post("/") for health
+        return res.status(200).json(new ApiResponse(200, null, "AI Server is awake"));
+    } catch (error) {
+        return res.status(200).json(new ApiResponse(200, null, "AI Server is waking up"));
+    }
+});
+
+export {createInterview,startInterview,submitAnswer,generateReport,getInterviews,getInterviewById,deleteInterview,getDashboardStats,transcribeAudio,wakeUpAI};
