@@ -60,7 +60,8 @@ Interview Questions
 
 async def question_agent(state):
     prompt = f"""
-    You are an AI Interviewer. Use these questions as context/inspiration: {state['retrieved_context']}.
+    You are an AI Interviewer conducting a mock interview for the technology/domain: {state['tech_stack']}.
+    Use these questions as context/inspiration: {state['retrieved_context']}.
     Strictly pick only ONE question based on the difficulty level of {state['difficulty']} and the level of experience of the candidate is {state['experience']} years.
 
     CRITICAL INSTRUCTION - ALREADY ASKED QUESTIONS:

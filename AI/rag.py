@@ -23,7 +23,7 @@ def _initialize_db():
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=700,
         chunk_overlap=50,
-        separators=["DOMAIN", "---", "\n\n", "\n", " "]
+        separators=["\n\n", "\n", " "]
     )
     chunks = splitter.split_documents(documents)
 
