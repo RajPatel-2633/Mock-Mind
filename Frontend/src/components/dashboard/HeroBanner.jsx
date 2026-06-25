@@ -55,7 +55,7 @@ export default function HeroBanner() {
   }, []);
 
   return (
-    <div className="relative w-full max-w-[1100px] mx-auto rounded-2xl overflow-hidden">
+    <div className="relative w-full max-w-[1100px] mx-auto rounded-2xl overflow-hidden min-h-[250px] md:min-h-[400px] lg:min-h-[500px] flex items-center justify-center">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSlide}
